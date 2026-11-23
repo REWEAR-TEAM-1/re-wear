@@ -63,6 +63,8 @@ The demo profile resets its data when the API stops; use the default MySQL confi
 - Get ranked suggestions from the local matching prototype using category and size preferences.
 - REST API validation and focused backend/frontend tests.
 
+Accounts, direct messaging, and checkout are not part of this first MVP.
+
 ## API
 
 | Method | Path | Purpose |

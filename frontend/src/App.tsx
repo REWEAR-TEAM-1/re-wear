@@ -577,7 +577,7 @@ function ListingDetailsDialog({
               {isSaved ? <><Check size={16} /> Saved to your edit</> : <><Heart size={16} /> Save for later</>}
             </button>
           </div>
-          <p className="contact-note">Interested? Save this find and connect with {listing.sellerName} through the RE:WEAR community.</p>
+          <p className="contact-note">This first MVP covers discovery and listings; in-app messaging and checkout are not enabled yet.</p>
         </div>
       </section>
     </div>
