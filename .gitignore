@@ -1,0 +1,22 @@
+# Java / Maven
+target/
+*.class
+*.log
+
+# Node / Vite
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+application-local.properties
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
