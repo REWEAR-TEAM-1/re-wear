@@ -1,0 +1,20 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: rewear
+      MYSQL_USER: rewear
+      MYSQL_PASSWORD: rewear
+      MYSQL_ROOT_PASSWORD: local-root-password
+    ports:
+      - "3306:3306"
+    volumes:
+      - rewear-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "rewear", "-prewear"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  rewear-mysql:
