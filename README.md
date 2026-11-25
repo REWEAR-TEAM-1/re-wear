@@ -57,6 +57,7 @@ The demo profile resets its data when the API stops; use the default MySQL confi
 ## Features
 
 - Browse and search sale pieces and redesign services.
+- Switch the interface between English, Korean, Vietnamese, Simplified Chinese, Uzbek, and Russian. Listing descriptions stay in the language entered by their seller.
 - Filter by category, size, listing type, and maximum price.
 - Create listings for a sale item or a designer redesign offer.
 - Upload listing photos from a phone or computer (JPG, PNG, GIF, or WEBP; up to 5 MB).
