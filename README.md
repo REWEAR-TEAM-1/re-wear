@@ -54,6 +54,44 @@ SPRING_PROFILES_ACTIVE=demo ./mvnw -f backend/pom.xml spring-boot:run
 
 The demo profile resets its data when the API stops; use the default MySQL configuration for persistent listings.
 
+## Production deployment
+
+The app can be deployed with a Vercel frontend, a Render backend, and Railway MySQL. Keep provider credentials in their dashboards; never commit them to this repository.
+
+### Railway MySQL
+
+Create a MySQL service and use its public connection host, port, database name, username, and password in Render. Set `DB_URL` to a JDBC URL in this form:
+
+```text
+jdbc:mysql://HOST:PORT/DATABASE?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC
+```
+
+Set the corresponding `DB_USERNAME` and `DB_PASSWORD` values in Render. The backend already reads those environment variables, as well as Render's `PORT`.
+
+### Render backend
+
+Create a web service from this repository and select **Docker** as the runtime. Use the repository root as the build context and the root `Dockerfile`; set the health-check path to `/api/health`.
+
+Set these Render environment variables:
+
+| Variable | Value |
+| --- | --- |
+| `DB_URL` | Railway JDBC URL described above |
+| `DB_USERNAME` | Railway MySQL username |
+| `DB_PASSWORD` | Railway MySQL password |
+| `CORS_ALLOWED_ORIGINS` | The production Vercel origin, for example `https://your-app.vercel.app` |
+| `UPLOADS_DIRECTORY` | `/app/uploads` when a persistent disk is mounted there |
+
+Uploaded images are stored on the backend filesystem. Render's filesystem is ephemeral by default, so attach a persistent disk mounted at `/app/uploads` before accepting real photo uploads. Render persistent disks require a paid web-service plan; without a disk or external object storage, uploaded photos can disappear after a restart or deploy.
+
+### Vercel frontend
+
+Import the same GitHub repository, set the project root directory to `frontend`, and use the Vite defaults (`npm run build`, output directory `dist`).
+
+For session-based sign-in to work reliably across browsers, route API and image requests through the Vercel origin instead of calling the Render hostname directly. After Render provides the backend URL, add `frontend/vercel.json` with rewrites for `/api/:path*` to `https://YOUR-RENDER-SERVICE.onrender.com/api/:path*` and `/uploads/:path*` to `https://YOUR-RENDER-SERVICE.onrender.com/uploads/:path*`; replace the example hostname with the actual Render service URL. Leave `VITE_API_BASE_URL` unset in Vercel so the frontend uses these same-origin paths. Redeploy Vercel after adding the rewrites.
+
+Do not use the development server (`npm run dev`) as the production frontend. After deployment, verify sign-up/sign-in, listing creation, and photo upload using the Vercel URL.
+
 ## Features
 
 - Browse and search sale pieces and redesign services.
