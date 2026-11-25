@@ -145,6 +145,17 @@ textarea:focus-visible {
   gap: 18px;
 }
 
+.language-control select {
+  max-width: 118px;
+  padding: 7px 22px 7px 9px;
+  border: 1px solid #e1e1d8;
+  border-radius: 2px;
+  background: transparent;
+  color: #50564d;
+  cursor: pointer;
+  font-size: 11px;
+}
+
 .saved-nav {
   display: inline-flex;
   align-items: center;
@@ -1499,7 +1510,13 @@ p {
   }
 
   .header-actions {
-    gap: 13px;
+    gap: 10px;
+  }
+
+  .language-control select {
+    max-width: 105px;
+    padding-inline: 6px 18px;
+    font-size: 10px;
   }
 
   .saved-nav span:not(.saved-count) {

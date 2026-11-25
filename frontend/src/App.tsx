@@ -23,23 +23,16 @@ import {
   type ListingDraft,
   type ListingType,
 } from "./types";
+import {
+  languageLocales,
+  languageNames,
+  languages,
+  parseLanguage,
+  translations,
+  type Language,
+} from "./i18n";
 
 type CatalogTab = "ALL" | ListingType;
-
-const categoryLabels: Record<ListingCategory, string> = {
-  TOPS: "Tops",
-  BOTTOMS: "Bottoms",
-  DRESSES: "Dresses",
-  OUTERWEAR: "Outerwear",
-  ACCESSORIES: "Accessories",
-};
-
-const conditionLabels: Record<Listing["condition"], string> = {
-  NEW: "New with tags",
-  LIKE_NEW: "Like new",
-  GOOD: "Good",
-  REWORKABLE: "Ready to rework",
-};
 
 const emptyDraft: ListingDraft = {
   title: "",
@@ -54,11 +47,20 @@ const emptyDraft: ListingDraft = {
   location: "Seoul",
 };
 
-const priceFormatter = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
+function formatPrice(value: number, language: Language): string {
+  return new Intl.NumberFormat(languageLocales[language], {
+    style: "currency",
+    currency: "KRW",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function getErrorMessage(error: unknown, fallback: string, networkError: string): string {
+  if (!(error instanceof Error) || !error.message) {
+    return fallback;
+  }
+  return ["Failed to fetch", "Load failed"].includes(error.message) ? networkError : error.message;
+}
 
 function readSavedIds(): number[] {
   try {
@@ -71,6 +73,27 @@ function readSavedIds(): number[] {
 }
 
 function App() {
+  const [language, setLanguage] = useState<Language>(() => {
+    try {
+      return parseLanguage(window.localStorage.getItem("rewear:language"));
+    } catch {
+      return "en";
+    }
+  });
+  const t = translations[language];
+  const categoryLabels: Record<ListingCategory, string> = {
+    TOPS: t.categoryTops,
+    BOTTOMS: t.categoryBottoms,
+    DRESSES: t.categoryDresses,
+    OUTERWEAR: t.categoryOuterwear,
+    ACCESSORIES: t.categoryAccessories,
+  };
+  const conditionLabels: Record<Listing["condition"], string> = {
+    NEW: t.newWithTags,
+    LIKE_NEW: t.likeNew,
+    GOOD: t.goodCondition,
+    REWORKABLE: t.readyToRework,
+  };
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -94,7 +117,7 @@ function App() {
     try {
       setListings(await getListings());
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "The catalog could not be loaded.");
+      setError(getErrorMessage(loadError, t.listingLoadFailed, t.networkError));
     } finally {
       setLoading(false);
     }
@@ -107,6 +130,13 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem("rewear:saved", JSON.stringify(savedIds));
   }, [savedIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem("rewear:language", language);
+    document.documentElement.lang = languageLocales[language];
+    document.title = t.pageTitle;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", t.pageDescription);
+  }, [language, t]);
 
   const filteredListings = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -155,15 +185,27 @@ function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="RE:WEAR home">
+        <a className="brand" href="#top" aria-label={t.siteHome}>
           <span className="brand-mark"><Leaf size={18} strokeWidth={2.2} /></span>
           <span>re<span className="brand-colon">:</span>wear</span>
         </a>
-        <nav className="main-nav" aria-label="Main navigation">
-          <a className="nav-active" href="#discover">Discover</a>
-          <a href="#how-it-works">Our impact</a>
+        <nav className="main-nav" aria-label={t.mainNavigation}>
+          <a className="nav-active" href="#discover">{t.discover}</a>
+          <a href="#how-it-works">{t.impact}</a>
         </nav>
         <div className="header-actions">
+          <label className="language-control">
+            <span className="sr-only">{t.language}</span>
+            <select
+              aria-label={t.language}
+              onChange={(event) => setLanguage(parseLanguage(event.target.value))}
+              value={language}
+            >
+              {languages.map((option) => (
+                <option key={option} value={option}>{languageNames[option]}</option>
+              ))}
+            </select>
+          </label>
           <button
             className={`saved-nav ${savedOnly ? "saved-nav-active" : ""}`}
             onClick={() => {
@@ -174,11 +216,11 @@ function App() {
             type="button"
           >
             <Heart size={16} fill={savedOnly ? "currentColor" : "none"} />
-            <span>Saved</span>
+            <span>{t.saved}</span>
             {savedIds.length > 0 && <span className="saved-count">{savedIds.length}</span>}
           </button>
           <button className="button button-dark button-small" onClick={() => setCreateOpen(true)} type="button">
-            <Plus size={16} /> List an item
+            <Plus size={16} /> {t.listItem}
           </button>
         </div>
       </header>
@@ -186,51 +228,51 @@ function App() {
       <main id="top">
         <section className="hero page-width">
           <div className="hero-copy">
-            <p className="eyebrow"><span className="eyebrow-dot" /> A more thoughtful way to dress</p>
-            <h1>Good things<br />deserve <em>another</em> life.</h1>
+            <p className="eyebrow"><span className="eyebrow-dot" /> {t.heroEyebrow}</p>
+            <h1>{t.heroTitle}<br /><em>{t.heroTitleEmphasis}</em></h1>
             <p className="hero-description">
-              Find a piece to love, pass one along, or give something old a beautiful new shape.
+              {t.heroDescription}
             </p>
             <div className="hero-actions">
-              <a className="button button-dark" href="#discover">Explore the edit <ArrowRight size={17} /></a>
+              <a className="button button-dark" href="#discover">{t.exploreEdit} <ArrowRight size={17} /></a>
               <button className="text-button" onClick={() => setCreateOpen(true)} type="button">
-                Share your wardrobe <ArrowDownRight size={16} />
+                {t.shareWardrobe} <ArrowDownRight size={16} />
               </button>
             </div>
             <div className="hero-note">
               <div className="avatar-stack" aria-hidden="true">
                 <span>M</span><span>J</span><span>S</span>
               </div>
-              <p><strong>Small choices, softer footprint.</strong><br />A community for clothes worth keeping.</p>
+              <p><strong>{t.smallChoices}</strong><br />{t.communityTagline}</p>
             </div>
           </div>
           <div className="hero-visual">
             <img
               className="hero-image"
               src={resolveImageUrl(featuredListing?.imageUrl ?? null) ?? "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=85"}
-              alt="A thoughtfully styled second-hand outfit"
+              alt={t.heroImageAlt}
             />
             <div className="hero-image-wash" />
             <div className="hero-image-label">
               <span className="label-icon"><Leaf size={15} /></span>
-              <span><strong>Wear it well.</strong><small>Pass it on.</small></span>
+              <span><strong>{t.wearItWell}</strong><small>{t.passItOn}</small></span>
             </div>
             <div className="hero-sticker">
-              <span>GOOD</span><span>THINGS</span><span>GO AROUND</span>
+              <span>{t.goodThings}</span><span>{t.things}</span><span>{t.goAround}</span>
               <ArrowDownRight size={17} />
             </div>
-            <span className="hero-caption">01 / GIVE CLOTHES A SECOND STORY</span>
+            <span className="hero-caption">{t.heroCaption}</span>
           </div>
         </section>
 
-        <section className="ticker" aria-label="Our values">
+        <section className="ticker" aria-label={t.ourValues}>
           <div className="ticker-track">
             {Array.from({ length: 2 }, (_, row) => (
               <span className="ticker-row" key={row}>
-                <span>REDUCE</span><Leaf size={15} /><span>REUSE</span><Leaf size={15} />
-                <span>REDESIGN</span><Leaf size={15} /><span>REPEAT</span><Leaf size={15} />
-                <span>REDUCE</span><Leaf size={15} /><span>REUSE</span><Leaf size={15} />
-                <span>REDESIGN</span><Leaf size={15} /><Leaf size={15} />
+                <span>{t.reduce}</span><Leaf size={15} /><span>{t.reuse}</span><Leaf size={15} />
+                <span>{t.redesign}</span><Leaf size={15} /><span>{t.repeat}</span><Leaf size={15} />
+                <span>{t.reduce}</span><Leaf size={15} /><span>{t.reuse}</span><Leaf size={15} />
+                <span>{t.redesign}</span><Leaf size={15} /><Leaf size={15} />
               </span>
             ))}
           </div>
@@ -239,18 +281,18 @@ function App() {
         <section className="catalog-section page-width" id="discover">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">THE RE:WEAR EDIT</p>
-              <h2>Find your next <em>favorite.</em></h2>
+              <p className="eyebrow">{t.catalogEyebrow}</p>
+              <h2>{t.catalogTitle} <em>{t.catalogTitleEmphasis}</em></h2>
             </div>
-            <p className="section-aside">Pre-loved pieces and one-of-a-kind<br />redesigns, ready for a new chapter.</p>
+            <p className="section-aside">{t.catalogAside}</p>
           </div>
 
           <div className="catalog-toolbar">
-            <div className="catalog-tabs" role="tablist" aria-label="Listing type">
+            <div className="catalog-tabs" role="tablist" aria-label={t.listingType}>
               {([
-                ["ALL", "Everything"],
-                ["SALE", "Pre-loved"],
-                ["REDESIGN", "Redesign"],
+                ["ALL", t.everything],
+                ["SALE", t.tabSale],
+                ["REDESIGN", t.tabRedesign],
               ] as const).map(([value, label]) => (
                 <button
                   aria-selected={tab === value}
@@ -268,24 +310,24 @@ function App() {
               <label className="search-field">
                 <Search size={16} />
                 <input
-                  aria-label="Search listings"
+                  aria-label={t.searchListings}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search the edit"
+                  placeholder={t.searchPlaceholder}
                   value={query}
                 />
               </label>
               <label className="select-field">
-                <span className="sr-only">Filter by category</span>
+                <span className="sr-only">{t.filterCategory}</span>
                 <select value={category} onChange={(event) => setCategory(event.target.value as ListingCategory | "")}>
-                  <option value="">All categories</option>
+                  <option value="">{t.allCategories}</option>
                   {categories.map((item) => <option key={item} value={item}>{categoryLabels[item]}</option>)}
                 </select>
               </label>
               <label className="select-field size-filter">
-                <span className="sr-only">Filter by size</span>
+                <span className="sr-only">{t.filterSize}</span>
                 <select value={size} onChange={(event) => setSize(event.target.value)}>
-                  <option value="">Any size</option>
-                  {["XS", "S", "M", "L", "XL", "Custom"].map((item) => <option key={item}>{item}</option>)}
+                  <option value="">{t.anySize}</option>
+                  {["XS", "S", "M", "L", "XL", t.customSize].map((item) => <option key={item}>{item}</option>)}
                 </select>
               </label>
               <button
@@ -293,7 +335,7 @@ function App() {
                 onClick={() => setShowMatch((current) => !current)}
                 type="button"
               >
-                <Sparkles size={16} /> Match me
+                <Sparkles size={16} /> {t.matchMe}
               </button>
             </div>
           </div>
@@ -302,54 +344,57 @@ function App() {
             <form className="match-panel" onSubmit={applyMatch}>
               <div className="match-panel-copy">
                 <span className="match-icon"><Sparkles size={17} /></span>
-                <span><strong>Find a better fit.</strong><small>Our matching prototype ranks pieces by your style and size.</small></span>
+                <span><strong>{t.matchTitle}</strong><small>{t.matchDescription}</small></span>
               </div>
               <label>
-                <span>I'm looking for</span>
+                <span>{t.lookingFor}</span>
                 <select value={matchCategory} onChange={(event) => setMatchCategory(event.target.value as ListingCategory | "")}>
-                  <option value="">Any category</option>
+                  <option value="">{t.allCategories}</option>
                   {categories.map((item) => <option key={item} value={item}>{categoryLabels[item]}</option>)}
                 </select>
               </label>
               <label>
-                <span>My size</span>
+                <span>{t.mySize}</span>
                 <select value={matchSize} onChange={(event) => setMatchSize(event.target.value)}>
-                  <option value="">Any size</option>
+                  <option value="">{t.anySize}</option>
                   {["XS", "S", "M", "L", "XL"].map((item) => <option key={item}>{item}</option>)}
                 </select>
               </label>
               <button className="button button-dark button-small" disabled={!matchCategory && !matchSize} type="submit">
-                Show my matches <ArrowRight size={15} />
+                {t.showMatches} <ArrowRight size={15} />
               </button>
             </form>
           )}
 
           {error && (
             <div className="notice notice-error" role="alert">
-              <div><strong>We couldn't reach the RE:WEAR catalog.</strong><p>{error}</p></div>
-              <button className="text-button" onClick={() => void loadListings()} type="button">Try again</button>
+              <div><strong>{t.catalogUnavailable}</strong><p>{error}</p></div>
+              <button className="text-button" onClick={() => void loadListings()} type="button">{t.tryAgain}</button>
             </div>
           )}
 
           {loading ? (
-            <div className="catalog-status"><LoaderCircle className="spin" size={24} /><span>Gathering good finds...</span></div>
+            <div className="catalog-status"><LoaderCircle className="spin" size={24} /><span>{t.loadingCatalog}</span></div>
           ) : !error && filteredListings.length === 0 ? (
             <div className="empty-state">
               <span className="empty-icon"><Shirt size={23} /></span>
-              <h3>{matchMode ? "No close matches just yet." : savedOnly ? "Your saved edit is waiting." : "Nothing in this edit yet."}</h3>
-              <p>{matchMode ? "Try another size or category, or browse all current finds." : savedOnly ? "Tap the heart on a listing to keep it close." : "Be the first to give a good piece a new home."}</p>
-              <button className="text-button" onClick={clearFilters} type="button">Show me everything <ArrowRight size={15} /></button>
+              <h3>{matchMode ? t.noMatches : savedOnly ? t.savedEmpty : t.catalogEmpty}</h3>
+              <p>{matchMode ? t.tryAnotherFilter : savedOnly ? t.savedHint : t.firstListing}</p>
+              <button className="text-button" onClick={clearFilters} type="button">{t.showEverything} <ArrowRight size={15} /></button>
             </div>
           ) : (
             <>
               <div className="results-meta">
-                <span>{savedOnly ? "YOUR SAVED EDIT" : matchMode ? "YOUR MATCHES" : "FRESHLY FOUND"} <b>{filteredListings.length}</b></span>
-                {matchMode && <button className="clear-match" onClick={() => setMatchMode(false)} type="button">Clear matches <X size={13} /></button>}
+                <span>{savedOnly ? t.savedEdit : matchMode ? t.yourMatches : t.freshlyFound} <b>{filteredListings.length}</b></span>
+                {matchMode && <button className="clear-match" onClick={() => setMatchMode(false)} type="button">{t.clearMatches} <X size={13} /></button>}
               </div>
               <div className="listing-grid">
                 {filteredListings.map((listing, index) => (
                   <ListingCard
                     isSaved={savedIds.includes(listing.id)}
+                    categoryLabels={categoryLabels}
+                    conditionLabels={conditionLabels}
+                    language={language}
                     key={listing.id}
                     listing={listing}
                     matchScore={matchMode ? (listing.category === matchPreferences.category ? 2 : 0)
@@ -357,6 +402,7 @@ function App() {
                     onOpen={() => setSelectedListing(listing)}
                     onToggleSaved={() => toggleSaved(listing.id)}
                     priority={index < 3}
+                    t={t}
                   />
                 ))}
               </div>
@@ -364,23 +410,23 @@ function App() {
           )}
 
           <div className="catalog-footnote">
-            <span><Leaf size={15} /> Every piece is a choice to keep good clothes in motion.</span>
-            <button className="text-button" onClick={() => setCreateOpen(true)} type="button">Have something to share? <ArrowRight size={15} /></button>
+            <span><Leaf size={15} /> {t.catalogFootnote}</span>
+            <button className="text-button" onClick={() => setCreateOpen(true)} type="button">{t.sharePrompt} <ArrowRight size={15} /></button>
           </div>
         </section>
 
         <section className="impact-section" id="how-it-works">
           <div className="impact-content page-width">
             <div className="impact-copy">
-              <p className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> THE CIRCLE OF GOOD</p>
-              <h2>Less new.<br /><em>More you.</em></h2>
-              <p>RE:WEAR brings people who love clothes together with the people who can love them next — or make them feel brand new again.</p>
-              <a className="button button-light" href="#discover">Explore the community <ArrowRight size={16} /></a>
+              <p className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> {t.circleEyebrow}</p>
+              <h2>{t.impactTitle}<br /><em>{t.impactTitleEmphasis}</em></h2>
+              <p>{t.impactDescription}</p>
+              <a className="button button-light" href="#discover">{t.exploreCommunity} <ArrowRight size={16} /></a>
             </div>
             <div className="impact-steps">
-              <div className="impact-step"><span>01</span><div><h3>Find a piece</h3><p>Discover pre-loved clothes with a story, a style, and a little more life in them.</p></div><Shirt size={20} /></div>
-              <div className="impact-step"><span>02</span><div><h3>Pass it along</h3><p>Give your closet a refresh and let someone else fall for what you already love.</p></div><ArrowRight size={20} /></div>
-              <div className="impact-step"><span>03</span><div><h3>Make it new</h3><p>Meet a local designer and turn a well-worn favorite into something only you own.</p></div><Sparkles size={20} /></div>
+              <div className="impact-step"><span>01</span><div><h3>{t.findPiece}</h3><p>{t.findPieceDescription}</p></div><Shirt size={20} /></div>
+              <div className="impact-step"><span>02</span><div><h3>{t.passAlong}</h3><p>{t.passAlongDescription}</p></div><ArrowRight size={20} /></div>
+              <div className="impact-step"><span>03</span><div><h3>{t.makeItNew}</h3><p>{t.makeItNewDescription}</p></div><Sparkles size={20} /></div>
             </div>
           </div>
           <span className="impact-decoration" aria-hidden="true">RE:USE</span>
@@ -389,11 +435,11 @@ function App() {
 
       <footer className="site-footer page-width">
         <a className="brand" href="#top"><span className="brand-mark"><Leaf size={17} /></span><span>re<span className="brand-colon">:</span>wear</span></a>
-        <p>Good things, worn again. <span>© 2026 RE:WEAR</span></p>
-        <a href="#top" className="footer-top">Back to top <ArrowDownRight size={14} /></a>
+        <p>{t.footerLine} <span>© 2026 RE:WEAR</span></p>
+        <a href="#top" className="footer-top">{t.backToTop} <ArrowDownRight size={14} /></a>
       </footer>
 
-      {createOpen && <CreateListingDialog onClose={() => setCreateOpen(false)} onCreated={(listing) => {
+      {createOpen && <CreateListingDialog categoryLabels={categoryLabels} conditionLabels={conditionLabels} onClose={() => setCreateOpen(false)} onCreated={(listing) => {
         setListings((current) => [listing, ...current]);
         setCreateOpen(false);
         setTab("ALL");
@@ -402,13 +448,17 @@ function App() {
         setSavedOnly(false);
         setMatchMode(false);
         setError("");
-      }} />}
+      }} t={t} />}
       {selectedListing && (
         <ListingDetailsDialog
+          categoryLabels={categoryLabels}
+          conditionLabels={conditionLabels}
           isSaved={savedIds.includes(selectedListing.id)}
+          language={language}
           listing={selectedListing}
           onClose={() => setSelectedListing(null)}
           onToggleSaved={() => toggleSaved(selectedListing.id)}
+          t={t}
         />
       )}
     </div>
@@ -420,6 +470,10 @@ function ListingCard({
   isSaved,
   matchScore,
   priority,
+  categoryLabels,
+  conditionLabels,
+  language,
+  t,
   onOpen,
   onToggleSaved,
 }: {
@@ -427,6 +481,10 @@ function ListingCard({
   isSaved: boolean;
   matchScore: number;
   priority: boolean;
+  categoryLabels: Record<ListingCategory, string>;
+  conditionLabels: Record<Listing["condition"], string>;
+  language: Language;
+  t: typeof translations.en;
   onOpen: () => void;
   onToggleSaved: () => void;
 }) {
@@ -435,16 +493,16 @@ function ListingCard({
   return (
     <article className="listing-card">
       <div className="listing-image-wrap">
-        <button className="listing-image-button" onClick={onOpen} type="button" aria-label={`View ${listing.title}`}>
+        <button className="listing-image-button" onClick={onOpen} type="button" aria-label={`${t.listingView}: ${listing.title}`}>
           {imageUrl
             ? <img alt="" className="listing-image" loading={priority ? "eager" : "lazy"} src={imageUrl} />
             : <span className="image-placeholder"><Shirt size={34} /></span>}
         </button>
         <span className={`listing-type ${listing.type === "REDESIGN" ? "type-redesign" : ""}`}>
-          {listing.type === "REDESIGN" ? "Designer service" : "Pre-loved"}
+          {listing.type === "REDESIGN" ? t.designerService : t.preLoved}
         </span>
         <button
-          aria-label={isSaved ? "Remove from saved" : "Save listing"}
+          aria-label={isSaved ? t.removeSaved : t.saveListing}
           aria-pressed={isSaved}
           className={`favorite-button ${isSaved ? "favorite-active" : ""}`}
           onClick={onToggleSaved}
@@ -452,19 +510,31 @@ function ListingCard({
         >
           <Heart size={17} fill={isSaved ? "currentColor" : "none"} />
         </button>
-        {matchScore > 0 && <span className="match-score"><Sparkles size={12} /> {matchScore * 25}% fit</span>}
+        {matchScore > 0 && <span className="match-score"><Sparkles size={12} /> {matchScore * 25}% {t.fit}</span>}
       </div>
       <div className="listing-info">
         <div className="listing-kicker"><span>{categoryLabels[listing.category]}</span><span>{conditionLabels[listing.condition]}</span></div>
         <button className="listing-title" onClick={onOpen} type="button">{listing.title}</button>
-        <div className="listing-meta"><span>Size {listing.size}</span><span className="meta-dot" /><span><MapPin size={12} /> {listing.location}</span></div>
-        <div className="listing-bottom"><span className="listing-price">{priceFormatter.format(listing.price)}</span><span className="listing-seller">by {listing.sellerName}</span></div>
+        <div className="listing-meta"><span>{t.sizeLabel} {listing.size}</span><span className="meta-dot" /><span><MapPin size={12} /> {listing.location}</span></div>
+        <div className="listing-bottom"><span className="listing-price">{formatPrice(listing.price, language)}</span><span className="listing-seller">{t.by} {listing.sellerName}</span></div>
       </div>
     </article>
   );
 }
 
-function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (listing: Listing) => void }) {
+function CreateListingDialog({
+  onClose,
+  onCreated,
+  categoryLabels,
+  conditionLabels,
+  t,
+}: {
+  onClose: () => void;
+  onCreated: (listing: Listing) => void;
+  categoryLabels: Record<ListingCategory, string>;
+  conditionLabels: Record<Listing["condition"], string>;
+  t: typeof translations.en;
+}) {
   const [draft, setDraft] = useState<ListingDraft>(emptyDraft);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -492,7 +562,7 @@ function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCr
       const listing = await createListing({ ...draft, imageUrl });
       onCreated(listing);
     } catch (submitError) {
-      setFormError(submitError instanceof Error ? submitError.message : "Your listing could not be saved.");
+      setFormError(getErrorMessage(submitError, t.listingSaveFailed, t.networkError));
     } finally {
       setSubmitting(false);
     }
@@ -504,13 +574,13 @@ function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCr
     if (image && image.size > 5 * 1024 * 1024) {
       setSelectedImage(null);
       event.target.value = "";
-      setFormError("Choose an image that is 5 MB or smaller.");
+      setFormError(t.chooseSmallImage);
       return;
     }
     if (image && !["image/jpeg", "image/png", "image/gif", "image/webp"].includes(image.type)) {
       setSelectedImage(null);
       event.target.value = "";
-      setFormError("Choose a JPG, PNG, GIF, or WEBP image.");
+      setFormError(t.chooseSupportedImage);
       return;
     }
     setSelectedImage(image);
@@ -522,64 +592,64 @@ function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCr
     }}>
       <section aria-labelledby="create-title" aria-modal="true" className="dialog-card create-dialog" role="dialog">
         <div className="dialog-header">
-          <div><p className="eyebrow">PASS IT ON</p><h2 id="create-title">Share something <em>good.</em></h2></div>
-          <button aria-label="Close dialog" className="dialog-close" onClick={onClose} type="button"><X size={19} /></button>
+          <div><p className="eyebrow">{t.passItOnEyebrow}</p><h2 id="create-title">{t.createTitle} <em>{t.createTitleEmphasis}</em></h2></div>
+          <button aria-label={t.closeDialog} className="dialog-close" onClick={onClose} type="button"><X size={19} /></button>
         </div>
-        <p className="dialog-intro">List a piece from your closet or offer your redesign skills to the community.</p>
+        <p className="dialog-intro">{t.createDescription}</p>
         <form className="listing-form" onSubmit={handleSubmit}>
-          <label className="form-wide">I'm here to
+          <label className="form-wide">{t.hereTo}
             <select onChange={(event) => updateDraft("type", event.target.value as ListingType)} value={draft.type}>
-              <option value="SALE">Pass along a piece</option>
-              <option value="REDESIGN">Offer a redesign service</option>
+              <option value="SALE">{t.passAlongPiece}</option>
+              <option value="REDESIGN">{t.offerRedesign}</option>
             </select>
           </label>
-          <label className="form-wide">Listing title
-            <input maxLength={120} onChange={(event) => updateDraft("title", event.target.value)} placeholder="e.g. Linen jacket, ready for spring" required value={draft.title} />
+          <label className="form-wide">{t.listingTitle}
+            <input maxLength={120} onChange={(event) => updateDraft("title", event.target.value)} placeholder={t.listingTitlePlaceholder} required value={draft.title} />
           </label>
-          <label>Description
-            <textarea maxLength={1000} onChange={(event) => updateDraft("description", event.target.value)} placeholder="Tell us what makes it special..." required rows={3} value={draft.description} />
+          <label>{t.description}
+            <textarea maxLength={1000} onChange={(event) => updateDraft("description", event.target.value)} placeholder={t.descriptionPlaceholder} required rows={3} value={draft.description} />
           </label>
-          <label>Price (KRW)
+          <label>{t.priceKrw}
             <input min="0" onChange={(event) => updateDraft("price", Number(event.target.value))} required step="1000" type="number" value={draft.price} />
           </label>
-          <label>Your name
-            <input maxLength={80} onChange={(event) => updateDraft("sellerName", event.target.value)} placeholder="Name or studio" required value={draft.sellerName} />
+          <label>{t.yourName}
+            <input maxLength={80} onChange={(event) => updateDraft("sellerName", event.target.value)} placeholder={t.namePlaceholder} required value={draft.sellerName} />
           </label>
-          <label>Category
+          <label>{t.category}
             <select onChange={(event) => updateDraft("category", event.target.value as ListingCategory)} value={draft.category}>
               {categories.map((item) => <option key={item} value={item}>{categoryLabels[item]}</option>)}
             </select>
           </label>
-          <label>Size
-            <input maxLength={16} onChange={(event) => updateDraft("size", event.target.value)} placeholder="M or Custom" required value={draft.size} />
+          <label>{t.size}
+            <input maxLength={16} onChange={(event) => updateDraft("size", event.target.value)} placeholder={t.sizePlaceholder} required value={draft.size} />
           </label>
-          <label>Condition
+          <label>{t.condition}
             <select onChange={(event) => updateDraft("condition", event.target.value as Listing["condition"])} value={draft.condition}>
               {conditions.map((item) => <option key={item} value={item}>{conditionLabels[item]}</option>)}
             </select>
           </label>
-          <label>Location
+          <label>{t.location}
             <input maxLength={100} onChange={(event) => updateDraft("location", event.target.value)} required value={draft.location} />
           </label>
-          <label className="form-wide image-upload-field">Photo <span className="optional-label">optional · JPG, PNG, GIF or WEBP · max 5 MB</span>
+          <label className="form-wide image-upload-field">{t.photo} <span className="optional-label">{t.photoOptional}</span>
             <input accept="image/jpeg,image/png,image/gif,image/webp" onChange={handleImageChange} ref={imageInputRef} type="file" />
           </label>
           {previewUrl && (
             <div className="image-preview form-wide">
-              <img alt="Selected listing preview" src={previewUrl} />
+              <img alt={t.selectedPhotoAlt} src={previewUrl} />
               <div>
                 <strong>{selectedImage?.name}</strong>
                 <span>{selectedImage ? `${(selectedImage.size / (1024 * 1024)).toFixed(2)} MB` : ""}</span>
                 <button className="text-button" onClick={() => {
                   setSelectedImage(null);
                   if (imageInputRef.current) imageInputRef.current.value = "";
-                }} type="button">Remove photo <X size={13} /></button>
+                }} type="button">{t.removePhoto} <X size={13} /></button>
               </div>
             </div>
           )}
           {formError && <p className="form-error form-wide" role="alert">{formError}</p>}
           <button className="button button-dark form-wide submit-button" disabled={submitting} type="submit">
-            {submitting ? <><LoaderCircle className="spin" size={17} /> Saving your listing...</> : <>Add to the edit <ArrowRight size={16} /></>}
+            {submitting ? <><LoaderCircle className="spin" size={17} /> {t.savingListing}</> : <>{t.addToEdit} <ArrowRight size={16} /></>}
           </button>
         </form>
       </section>
@@ -592,11 +662,19 @@ function ListingDetailsDialog({
   isSaved,
   onClose,
   onToggleSaved,
+  categoryLabels,
+  conditionLabels,
+  language,
+  t,
 }: {
   listing: Listing;
   isSaved: boolean;
   onClose: () => void;
   onToggleSaved: () => void;
+  categoryLabels: Record<ListingCategory, string>;
+  conditionLabels: Record<Listing["condition"], string>;
+  language: Language;
+  t: typeof translations.en;
 }) {
   const imageUrl = resolveImageUrl(listing.imageUrl);
 
@@ -605,25 +683,25 @@ function ListingDetailsDialog({
       if (event.target === event.currentTarget) onClose();
     }}>
       <section aria-labelledby="details-title" aria-modal="true" className="dialog-card details-dialog" role="dialog">
-        <button aria-label="Close dialog" className="dialog-close details-close" onClick={onClose} type="button"><X size={19} /></button>
+        <button aria-label={t.closeDialog} className="dialog-close details-close" onClick={onClose} type="button"><X size={19} /></button>
         <div className="details-image">
           {imageUrl ? <img alt="" src={imageUrl} /> : <span className="image-placeholder"><Shirt size={36} /></span>}
           <span className={`listing-type ${listing.type === "REDESIGN" ? "type-redesign" : ""}`}>
-            {listing.type === "REDESIGN" ? "Designer service" : "Pre-loved"}
+            {listing.type === "REDESIGN" ? t.designerService : t.preLoved}
           </span>
         </div>
         <div className="details-copy">
           <p className="eyebrow">{categoryLabels[listing.category]} · {conditionLabels[listing.condition]}</p>
           <h2 id="details-title">{listing.title}</h2>
           <p className="details-description">{listing.description}</p>
-          <div className="details-meta"><span>Size {listing.size}</span><span><MapPin size={14} /> {listing.location}</span><span>By {listing.sellerName}</span></div>
+          <div className="details-meta"><span>{t.sizeLabel} {listing.size}</span><span><MapPin size={14} /> {listing.location}</span><span>{t.by} {listing.sellerName}</span></div>
           <div className="details-bottom">
-            <strong>{priceFormatter.format(listing.price)}</strong>
+            <strong>{formatPrice(listing.price, language)}</strong>
             <button className={`button ${isSaved ? "button-saved" : "button-dark"}`} onClick={onToggleSaved} type="button">
-              {isSaved ? <><Check size={16} /> Saved to your edit</> : <><Heart size={16} /> Save for later</>}
+              {isSaved ? <><Check size={16} /> {t.detailsSaved}</> : <><Heart size={16} /> {t.saveForLater}</>}
             </button>
           </div>
-          <p className="contact-note">This first MVP covers discovery and listings; in-app messaging and checkout are not enabled yet.</p>
+          <p className="contact-note">{t.mvpNote}</p>
         </div>
       </section>
     </div>
