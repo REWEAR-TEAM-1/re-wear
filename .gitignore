@@ -14,6 +14,8 @@ npm-debug.log*
 .env.*
 !.env.example
 application-local.properties
+/uploads/
+/backend/uploads/
 
 # IDE / OS
 .idea/
