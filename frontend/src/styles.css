@@ -1244,6 +1244,70 @@ p {
   resize: vertical;
 }
 
+.listing-form .image-upload-field input[type="file"] {
+  min-height: 42px;
+  padding: 7px;
+  color: #777d71;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.listing-form .image-upload-field input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  padding: 6px 10px;
+  border: 1px solid #d5dacd;
+  border-radius: 2px;
+  background: #e9eee5;
+  color: #435c45;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.image-preview {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 9px;
+  border: 1px solid #dedfd6;
+  background: #fffefa;
+}
+
+.image-preview img {
+  width: 68px;
+  height: 68px;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+
+.image-preview > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.image-preview strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: #3e493e;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-preview span {
+  color: #96988f;
+  font-size: 9px;
+}
+
+.image-preview .text-button {
+  color: #97594b;
+  font-size: 9px;
+}
+
 .form-wide {
   grid-column: 1 / -1;
 }

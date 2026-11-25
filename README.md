@@ -24,7 +24,7 @@ The presentation describes a 15-week product plan, seller/buyer/designer connect
    docker compose up -d db
    ```
 
-   Compose creates the `rewear` database and a local `rewear` user.    To use a different MySQL instance, set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` before starting the backend. Set `CORS_ALLOWED_ORIGINS` to a comma-separated list when serving the frontend from a different origin.
+   Compose creates the `rewear` database and a local `rewear` user. To use a different MySQL instance, set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` before starting the backend. Set `CORS_ALLOWED_ORIGINS` to a comma-separated list when serving the frontend from a different origin. Uploaded images are stored in `backend/uploads/` by default; set `UPLOADS_DIRECTORY` to choose another persistent directory.
 
 2. Start the API (from the repository root):
 
@@ -59,6 +59,7 @@ The demo profile resets its data when the API stops; use the default MySQL confi
 - Browse and search sale pieces and redesign services.
 - Filter by category, size, listing type, and maximum price.
 - Create listings for a sale item or a designer redesign offer.
+- Upload listing photos from a phone or computer (JPG, PNG, GIF, or WEBP; up to 5 MB).
 - Save favorite listings in the current browser.
 - Get ranked suggestions from the local matching prototype using category and size preferences.
 - REST API validation and focused backend/frontend tests.
@@ -72,6 +73,7 @@ Accounts, direct messaging, and checkout are not part of this first MVP.
 | `GET` | `/api/health` | Check API availability |
 | `GET` | `/api/listings` | List listings; supports `q`, `category`, `type`, and `maxPrice` filters |
 | `POST` | `/api/listings` | Create a sale or redesign listing |
+| `POST` | `/api/uploads` | Upload an image as multipart form data (`file` field) |
 
 Listing categories are `TOPS`, `BOTTOMS`, `DRESSES`, `OUTERWEAR`, and `ACCESSORIES`. Conditions are `NEW`, `LIKE_NEW`, `GOOD`, and `REWORKABLE`. Types are `SALE` and `REDESIGN`.
 

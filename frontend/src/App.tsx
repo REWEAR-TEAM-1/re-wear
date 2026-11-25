@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -13,7 +13,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { createListing, getListings } from "./api";
+import { createListing, getListings, resolveImageUrl, uploadImage } from "./api";
 import { recommendListings, type MatchPreferences } from "./recommendations";
 import {
   categories,
@@ -207,7 +207,7 @@ function App() {
           <div className="hero-visual">
             <img
               className="hero-image"
-              src={featuredListing?.imageUrl ?? "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=85"}
+              src={resolveImageUrl(featuredListing?.imageUrl ?? null) ?? "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=85"}
               alt="A thoughtfully styled second-hand outfit"
             />
             <div className="hero-image-wash" />
@@ -430,12 +430,14 @@ function ListingCard({
   onOpen: () => void;
   onToggleSaved: () => void;
 }) {
+  const imageUrl = resolveImageUrl(listing.imageUrl);
+
   return (
     <article className="listing-card">
       <div className="listing-image-wrap">
         <button className="listing-image-button" onClick={onOpen} type="button" aria-label={`View ${listing.title}`}>
-          {listing.imageUrl
-            ? <img alt="" className="listing-image" loading={priority ? "eager" : "lazy"} src={listing.imageUrl} />
+          {imageUrl
+            ? <img alt="" className="listing-image" loading={priority ? "eager" : "lazy"} src={imageUrl} />
             : <span className="image-placeholder"><Shirt size={34} /></span>}
         </button>
         <span className={`listing-type ${listing.type === "REDESIGN" ? "type-redesign" : ""}`}>
@@ -464,8 +466,18 @@ function ListingCard({
 
 function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (listing: Listing) => void }) {
   const [draft, setDraft] = useState<ListingDraft>(emptyDraft);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const previewUrl = useMemo(
+    () => selectedImage ? URL.createObjectURL(selectedImage) : "",
+    [selectedImage],
+  );
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   function updateDraft<Key extends keyof ListingDraft>(key: Key, value: ListingDraft[Key]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -476,13 +488,32 @@ function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCr
     setSubmitting(true);
     setFormError("");
     try {
-      const listing = await createListing(draft);
+      const imageUrl = selectedImage ? await uploadImage(selectedImage) : "";
+      const listing = await createListing({ ...draft, imageUrl });
       onCreated(listing);
     } catch (submitError) {
       setFormError(submitError instanceof Error ? submitError.message : "Your listing could not be saved.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const image = event.target.files?.[0] ?? null;
+    setFormError("");
+    if (image && image.size > 5 * 1024 * 1024) {
+      setSelectedImage(null);
+      event.target.value = "";
+      setFormError("Choose an image that is 5 MB or smaller.");
+      return;
+    }
+    if (image && !["image/jpeg", "image/png", "image/gif", "image/webp"].includes(image.type)) {
+      setSelectedImage(null);
+      event.target.value = "";
+      setFormError("Choose a JPG, PNG, GIF, or WEBP image.");
+      return;
+    }
+    setSelectedImage(image);
   }
 
   return (
@@ -530,9 +561,22 @@ function CreateListingDialog({ onClose, onCreated }: { onClose: () => void; onCr
           <label>Location
             <input maxLength={100} onChange={(event) => updateDraft("location", event.target.value)} required value={draft.location} />
           </label>
-          <label className="form-wide">Photo URL <span className="optional-label">optional</span>
-            <input maxLength={2048} onChange={(event) => updateDraft("imageUrl", event.target.value)} placeholder="https://..." type="url" value={draft.imageUrl} />
+          <label className="form-wide image-upload-field">Photo <span className="optional-label">optional · JPG, PNG, GIF or WEBP · max 5 MB</span>
+            <input accept="image/jpeg,image/png,image/gif,image/webp" onChange={handleImageChange} ref={imageInputRef} type="file" />
           </label>
+          {previewUrl && (
+            <div className="image-preview form-wide">
+              <img alt="Selected listing preview" src={previewUrl} />
+              <div>
+                <strong>{selectedImage?.name}</strong>
+                <span>{selectedImage ? `${(selectedImage.size / (1024 * 1024)).toFixed(2)} MB` : ""}</span>
+                <button className="text-button" onClick={() => {
+                  setSelectedImage(null);
+                  if (imageInputRef.current) imageInputRef.current.value = "";
+                }} type="button">Remove photo <X size={13} /></button>
+              </div>
+            </div>
+          )}
           {formError && <p className="form-error form-wide" role="alert">{formError}</p>}
           <button className="button button-dark form-wide submit-button" disabled={submitting} type="submit">
             {submitting ? <><LoaderCircle className="spin" size={17} /> Saving your listing...</> : <>Add to the edit <ArrowRight size={16} /></>}
@@ -554,6 +598,8 @@ function ListingDetailsDialog({
   onClose: () => void;
   onToggleSaved: () => void;
 }) {
+  const imageUrl = resolveImageUrl(listing.imageUrl);
+
   return (
     <div className="modal-backdrop" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -561,7 +607,7 @@ function ListingDetailsDialog({
       <section aria-labelledby="details-title" aria-modal="true" className="dialog-card details-dialog" role="dialog">
         <button aria-label="Close dialog" className="dialog-close details-close" onClick={onClose} type="button"><X size={19} /></button>
         <div className="details-image">
-          {listing.imageUrl ? <img alt="" src={listing.imageUrl} /> : <span className="image-placeholder"><Shirt size={36} /></span>}
+          {imageUrl ? <img alt="" src={imageUrl} /> : <span className="image-placeholder"><Shirt size={36} /></span>}
           <span className={`listing-type ${listing.type === "REDESIGN" ? "type-redesign" : ""}`}>
             {listing.type === "REDESIGN" ? "Designer service" : "Pre-loved"}
           </span>
