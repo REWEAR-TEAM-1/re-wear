@@ -58,11 +58,11 @@ class ListingServiceTest {
         );
         when(repository.save(any(Listing.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Listing saved = service.createListing(request);
+        Listing saved = service.createListing(request, "Signed-in seller");
 
         assertEquals("Linen shirt", saved.getTitle());
         assertEquals("Light and breathable", saved.getDescription());
-        assertEquals("Mina", saved.getSellerName());
+        assertEquals("Signed-in seller", saved.getSellerName());
         assertEquals("M", saved.getSize());
         assertEquals("Seoul", saved.getLocation());
         assertNull(saved.getImageUrl());

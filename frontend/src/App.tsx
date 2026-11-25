@@ -12,8 +12,20 @@ import {
   Shirt,
   Sparkles,
   X,
+  UserRound,
 } from "lucide-react";
-import { createListing, getListings, resolveImageUrl, uploadImage } from "./api";
+import {
+  ApiError,
+  createListing,
+  getCurrentUser,
+  getListings,
+  resolveImageUrl,
+  signIn,
+  signOut,
+  signUp,
+  uploadImage,
+  type AuthUser,
+} from "./api";
 import { recommendListings, type MatchPreferences } from "./recommendations";
 import {
   categories,
@@ -33,6 +45,7 @@ import {
 } from "./i18n";
 
 type CatalogTab = "ALL" | ListingType;
+type AuthMode = "signin" | "signup";
 
 const emptyDraft: ListingDraft = {
   title: "",
@@ -60,6 +73,15 @@ function getErrorMessage(error: unknown, fallback: string, networkError: string)
     return fallback;
   }
   return ["Failed to fetch", "Load failed"].includes(error.message) ? networkError : error.message;
+}
+
+function getAuthErrorMessage(error: unknown, t: typeof translations.en): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return t.authInvalid;
+    if (error.status === 409) return t.authDuplicate;
+    if (error.status === 400) return t.authInvalidForm;
+  }
+  return getErrorMessage(error, t.authFailure, t.authFailure);
 }
 
 function readSavedIds(): number[] {
@@ -95,6 +117,11 @@ function App() {
     REWORKABLE: t.readyToRework,
   };
   const [listings, setListings] = useState<Listing[]>([]);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
+  const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -125,6 +152,23 @@ function App() {
 
   useEffect(() => {
     void loadListings();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getCurrentUser()
+      .then((currentUser) => {
+        if (active) setUser(currentUser);
+      })
+      .catch((error: unknown) => {
+        if (active) setAuthError(getAuthErrorMessage(error, t));
+      })
+      .finally(() => {
+        if (active) setAuthChecking(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -182,6 +226,31 @@ function App() {
 
   const featuredListing = listings.find((listing) => listing.type === "SALE") ?? listings[0];
 
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthError("");
+    setAuthOpen(true);
+  }
+
+  function openListingCreator() {
+    if (!user) {
+      openAuth("signin");
+      setAuthError(t.authRequired);
+      return;
+    }
+    setCreateOpen(true);
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+      setUser(null);
+      setAuthError("");
+    } catch (error) {
+      setAuthError(getAuthErrorMessage(error, t));
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -219,11 +288,30 @@ function App() {
             <span>{t.saved}</span>
             {savedIds.length > 0 && <span className="saved-count">{savedIds.length}</span>}
           </button>
-          <button className="button button-dark button-small" onClick={() => setCreateOpen(true)} type="button">
+          {user ? (
+            <div className="account-actions">
+              <span className="account-name"><UserRound size={15} /> {user.name}</span>
+              <button className="text-button sign-out-button" onClick={() => void handleSignOut()} type="button">
+                {t.signOut}
+              </button>
+            </div>
+          ) : (
+            <button
+              className="button button-outline button-small auth-nav"
+              disabled={authChecking}
+              onClick={() => openAuth("signin")}
+              type="button"
+            >
+              {t.authAction}
+            </button>
+          )}
+          <button className="button button-dark button-small" onClick={openListingCreator} type="button">
             <Plus size={16} /> {t.listItem}
           </button>
         </div>
       </header>
+
+      {authError && <div className="auth-alert page-width" role="alert">{authError}</div>}
 
       <main id="top">
         <section className="hero page-width">
@@ -235,7 +323,7 @@ function App() {
             </p>
             <div className="hero-actions">
               <a className="button button-dark" href="#discover">{t.exploreEdit} <ArrowRight size={17} /></a>
-              <button className="text-button" onClick={() => setCreateOpen(true)} type="button">
+              <button className="text-button" onClick={openListingCreator} type="button">
                 {t.shareWardrobe} <ArrowDownRight size={16} />
               </button>
             </div>
@@ -411,7 +499,7 @@ function App() {
 
           <div className="catalog-footnote">
             <span><Leaf size={15} /> {t.catalogFootnote}</span>
-            <button className="text-button" onClick={() => setCreateOpen(true)} type="button">{t.sharePrompt} <ArrowRight size={15} /></button>
+            <button className="text-button" onClick={openListingCreator} type="button">{t.sharePrompt} <ArrowRight size={15} /></button>
           </div>
         </section>
 
@@ -439,7 +527,20 @@ function App() {
         <a href="#top" className="footer-top">{t.backToTop} <ArrowDownRight size={14} /></a>
       </footer>
 
-      {createOpen && <CreateListingDialog categoryLabels={categoryLabels} conditionLabels={conditionLabels} onClose={() => setCreateOpen(false)} onCreated={(listing) => {
+      {authOpen && (
+        <AuthDialog
+          mode={authMode}
+          onAuthenticated={(authenticatedUser) => {
+            setUser(authenticatedUser);
+            setAuthOpen(false);
+            setAuthError("");
+          }}
+          onClose={() => setAuthOpen(false)}
+          onModeChange={setAuthMode}
+          t={t}
+        />
+      )}
+      {createOpen && user && <CreateListingDialog categoryLabels={categoryLabels} conditionLabels={conditionLabels} user={user} onClose={() => setCreateOpen(false)} onCreated={(listing) => {
         setListings((current) => [listing, ...current]);
         setCreateOpen(false);
         setTab("ALL");
@@ -461,6 +562,112 @@ function App() {
           t={t}
         />
       )}
+    </div>
+  );
+}
+
+function AuthDialog({
+  mode,
+  onClose,
+  onAuthenticated,
+  onModeChange,
+  t,
+}: {
+  mode: AuthMode;
+  onClose: () => void;
+  onAuthenticated: (user: AuthUser) => void;
+  onModeChange: (mode: AuthMode) => void;
+  t: typeof translations.en;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const user = mode === "signup"
+        ? await signUp(name.trim(), email.trim(), password)
+        : await signIn(email.trim(), password);
+      onAuthenticated(user);
+    } catch (submitError) {
+      setError(getAuthErrorMessage(submitError, t));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function changeMode(nextMode: AuthMode) {
+    setError("");
+    onModeChange(nextMode);
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <section aria-labelledby="auth-title" aria-modal="true" className="dialog-card auth-dialog" role="dialog">
+        <div className="dialog-header">
+          <div>
+            <p className="eyebrow">RE:WEAR</p>
+            <h2 id="auth-title">{mode === "signin" ? t.signInTitle : t.signUpTitle}</h2>
+          </div>
+          <button aria-label={t.closeDialog} className="dialog-close" onClick={onClose} type="button"><X size={19} /></button>
+        </div>
+        <p className="dialog-intro">{t.authDescription}</p>
+        <form className="listing-form auth-form" onSubmit={handleSubmit}>
+          {mode === "signup" && (
+            <label className="form-wide">{t.authName}
+              <input
+                autoComplete="name"
+                maxLength={80}
+                onChange={(event) => setName(event.target.value)}
+                required
+                value={name}
+              />
+            </label>
+          )}
+          <label className="form-wide">{t.authEmail}
+            <input
+              autoComplete="email"
+              maxLength={320}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </label>
+          <label className="form-wide">{t.authPassword}
+            <input
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              maxLength={128}
+              minLength={8}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              type="password"
+              value={password}
+            />
+          </label>
+          {mode === "signup" && <span className="password-hint form-wide">{t.passwordHint}</span>}
+          {error && <p className="form-error form-wide" role="alert">{error}</p>}
+          <button className="button button-dark form-wide submit-button" disabled={submitting} type="submit">
+            {submitting
+              ? <><LoaderCircle className="spin" size={17} /> {mode === "signin" ? t.signingIn : t.signingUp}</>
+              : mode === "signin" ? t.submitSignIn : t.submitSignUp}
+          </button>
+        </form>
+        <button
+          className="text-button auth-switch"
+          onClick={() => changeMode(mode === "signin" ? "signup" : "signin")}
+          type="button"
+        >
+          {mode === "signin" ? t.switchToSignUp : t.switchToSignIn}
+        </button>
+      </section>
     </div>
   );
 }
@@ -527,15 +734,17 @@ function CreateListingDialog({
   onCreated,
   categoryLabels,
   conditionLabels,
+  user,
   t,
 }: {
   onClose: () => void;
   onCreated: (listing: Listing) => void;
   categoryLabels: Record<ListingCategory, string>;
   conditionLabels: Record<Listing["condition"], string>;
+  user: AuthUser;
   t: typeof translations.en;
 }) {
-  const [draft, setDraft] = useState<ListingDraft>(emptyDraft);
+  const [draft, setDraft] = useState<ListingDraft>(() => ({ ...emptyDraft, sellerName: user.name }));
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -559,7 +768,7 @@ function CreateListingDialog({
     setFormError("");
     try {
       const imageUrl = selectedImage ? await uploadImage(selectedImage) : "";
-      const listing = await createListing({ ...draft, imageUrl });
+      const listing = await createListing({ ...draft, sellerName: user.name, imageUrl });
       onCreated(listing);
     } catch (submitError) {
       setFormError(getErrorMessage(submitError, t.listingSaveFailed, t.networkError));
@@ -611,9 +820,6 @@ function CreateListingDialog({
           </label>
           <label>{t.priceKrw}
             <input min="0" onChange={(event) => updateDraft("price", Number(event.target.value))} required step="1000" type="number" value={draft.price} />
-          </label>
-          <label>{t.yourName}
-            <input maxLength={80} onChange={(event) => updateDraft("sellerName", event.target.value)} placeholder={t.namePlaceholder} required value={draft.sellerName} />
           </label>
           <label>{t.category}
             <select onChange={(event) => updateDraft("category", event.target.value as ListingCategory)} value={draft.category}>

@@ -1,7 +1,9 @@
 package com.rewear.listing;
 
+import com.rewear.auth.RewearUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,8 +41,11 @@ public class ListingController {
 
     @PostMapping("/listings")
     @ResponseStatus(HttpStatus.CREATED)
-    public Listing createListing(@Valid @RequestBody ListingRequest request) {
-        return listingService.createListing(request);
+    public Listing createListing(
+            @Valid @RequestBody ListingRequest request,
+            @AuthenticationPrincipal RewearUserDetails userDetails
+    ) {
+        return listingService.createListing(request, userDetails.getAccount().getName());
     }
 
     public record HealthResponse(String status, String message) {

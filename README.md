@@ -60,12 +60,14 @@ The demo profile resets its data when the API stops; use the default MySQL confi
 - Switch the interface between English, Korean, Vietnamese, Simplified Chinese, Uzbek, and Russian. Listing descriptions stay in the language entered by their seller.
 - Filter by category, size, listing type, and maximum price.
 - Create listings for a sale item or a designer redesign offer.
+- Register and sign in with an email and password; passwords are stored as PBKDF2 hashes and sessions use CSRF protection.
+- Require a signed-in account to upload listing photos or publish listings; seller names come from the account profile.
 - Upload listing photos from a phone or computer (JPG, PNG, GIF, or WEBP; up to 5 MB).
 - Save favorite listings in the current browser.
 - Get ranked suggestions from the local matching prototype using category and size preferences.
 - REST API validation and focused backend/frontend tests.
 
-Accounts, direct messaging, and checkout are not part of this first MVP.
+Direct messaging and checkout are not part of this first MVP.
 
 ## API
 
@@ -73,8 +75,13 @@ Accounts, direct messaging, and checkout are not part of this first MVP.
 | --- | --- | --- |
 | `GET` | `/api/health` | Check API availability |
 | `GET` | `/api/listings` | List listings; supports `q`, `category`, `type`, and `maxPrice` filters |
-| `POST` | `/api/listings` | Create a sale or redesign listing |
-| `POST` | `/api/uploads` | Upload an image as multipart form data (`file` field) |
+| `POST` | `/api/auth/signup` | Create an account and start a session |
+| `POST` | `/api/auth/signin` | Sign in and start a session |
+| `GET` | `/api/auth/me` | Read the current session |
+| `POST` | `/api/auth/signout` | End the current session |
+| `GET` | `/api/auth/csrf` | Get a CSRF token for form submissions |
+| `POST` | `/api/listings` | Create a listing (requires a signed-in session and CSRF token) |
+| `POST` | `/api/uploads` | Upload an image (requires a signed-in session and CSRF token) |
 
 Listing categories are `TOPS`, `BOTTOMS`, `DRESSES`, `OUTERWEAR`, and `ACCESSORIES`. Conditions are `NEW`, `LIKE_NEW`, `GOOD`, and `REWORKABLE`. Types are `SALE` and `REDESIGN`.
 
