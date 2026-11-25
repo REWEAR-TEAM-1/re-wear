@@ -33,11 +33,11 @@ public class ListingService {
                 .toList();
     }
 
-    public Listing createListing(ListingRequest request) {
+    public Listing createListing(ListingRequest request, String sellerName) {
         Listing listing = new Listing(
                 request.title().trim(),
                 request.description().trim(),
-                request.sellerName().trim(),
+                sellerName.trim(),
                 request.category(),
                 request.size().trim(),
                 request.condition(),

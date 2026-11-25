@@ -17,8 +17,56 @@
   --serif: "Playfair Display", Georgia, serif;
 }
 
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-name {
+  display: inline-flex;
+  max-width: 130px;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: #555b52;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sign-out-button {
+  font-size: 10px;
+}
+
+.auth-alert {
+  margin-block: 12px 0;
+  padding: 11px 14px;
+  background: #f7e8e1;
+  color: #8e4639;
+  font-size: 11px;
+}
+
 * {
   box-sizing: border-box;
+}
+
+.auth-dialog {
+  width: min(100%, 440px);
+}
+
+.auth-form {
+  grid-template-columns: 1fr;
+}
+
+.password-hint {
+  margin-top: -6px;
+  color: #777d71;
+  font-size: 10px;
+}
+
+.auth-switch {
+  margin-top: 15px;
 }
 
 html {
@@ -215,6 +263,16 @@ textarea:focus-visible {
 
 .button-dark:hover:not(:disabled) {
   background: var(--green-dark);
+}
+
+.button-outline {
+  border-color: #c9d2c4;
+  background: transparent;
+  color: var(--green);
+}
+
+.button-outline:hover:not(:disabled) {
+  background: #e9eee5;
 }
 
 .button-small {
@@ -1511,6 +1569,25 @@ p {
 
   .header-actions {
     gap: 10px;
+  }
+
+  .account-actions {
+    gap: 7px;
+  }
+
+  .account-name {
+    display: none;
+  }
+
+  .sign-out-button {
+    font-size: 9px;
+  }
+
+  .auth-nav {
+    max-width: 105px;
+    padding-inline: 7px;
+    font-size: 8px;
+    white-space: normal;
   }
 
   .language-control select {
